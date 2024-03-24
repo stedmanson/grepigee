@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/stedmanson/grepigee/internal/apigee"
 	"github.com/stedmanson/grepigee/internal/output"
@@ -11,7 +13,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var environment string // To store the environment name
+var environment string   // To store the environment name
+var regExpression string // To store the regex pattern to search for
 
 // findCmd represents the find command
 var findCmd = &cobra.Command{
@@ -26,11 +29,16 @@ var findCmd = &cobra.Command{
 			fmt.Println("Error: --env flag is required")
 			os.Exit(1)
 		}
+
+		if regExpression == "" {
+			fmt.Println("Error: --expr flag is required")
+			os.Exit(1)
+		}
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 
-		foundSharedflowItems := processSharedFlows(environment)
-		foundProxyItems := processProxies(environment)
+		foundSharedflowItems := processSharedFlows(environment, regExpression)
+		foundProxyItems := processProxies(environment, regExpression)
 
 		combinedItems := append(foundSharedflowItems, foundProxyItems...)
 
@@ -45,9 +53,11 @@ func init() {
 	rootCmd.AddCommand(findCmd)
 
 	findCmd.Flags().StringVarP(&environment, "env", "e", "", "Specify the environment to search in")
+	findCmd.Flags().StringVarP(&regExpression, "expr", "x", "", "Specify the regex pattern to search for")
+
 }
 
-func processSharedFlows(environment string) []searcher.Found {
+func processSharedFlows(environment string, regExpression string) []searcher.Found {
 	sharedflowList, err := apigee.GetSharedFlowList()
 	if err != nil {
 		fmt.Println("Error getting shared flow list:", err)
@@ -55,9 +65,12 @@ func processSharedFlows(environment string) []searcher.Found {
 	}
 
 	deployedSharedflowList := apigee.GetSharedflowDeployments(sharedflowList, environment)
+
 	apigee.DownloadSharedflowRevision(deployedSharedflowList, environment)
 
-	foundSharedflowItems, err := searcher.SearchInDirectory(environment+"/sharedflows", "(?i)api-ecs")
+	removeZipFiles(environment + "/sharedflows")
+
+	foundSharedflowItems, err := searcher.SearchInDirectory(environment+"/sharedflows", regExpression)
 	if err != nil {
 		fmt.Println("Error occurred while searching shared flows:", err)
 		return nil
@@ -66,7 +79,7 @@ func processSharedFlows(environment string) []searcher.Found {
 	return foundSharedflowItems
 }
 
-func processProxies(environment string) []searcher.Found {
+func processProxies(environment string, regExpression string) []searcher.Found {
 	proxyList, err := apigee.GetProxyList()
 	if err != nil {
 		fmt.Println("Error getting proxy list:", err)
@@ -77,7 +90,9 @@ func processProxies(environment string) []searcher.Found {
 
 	apigee.DownloadProxyRevision(deployedProxyList, environment)
 
-	foundProxyItems, err := searcher.SearchInDirectory(environment+"/proxies", "(?i)api-ecs")
+	removeZipFiles(environment + "/proxies")
+
+	foundProxyItems, err := searcher.SearchInDirectory(environment+"/proxies", regExpression)
 	if err != nil {
 		fmt.Println("Error occurred while searching proxies:", err)
 		return nil
@@ -90,7 +105,27 @@ func cleanupDirectory(directory string) {
 	err := os.RemoveAll(directory)
 	if err != nil {
 		fmt.Printf("Error removing directory %s: %v\n", directory, err)
-	} else {
-		fmt.Printf("Successfully removed directory %s\n", directory)
+	}
+}
+
+func removeZipFiles(directory string) {
+	// Find and remove zip files
+	err := filepath.Walk(directory, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		if !info.IsDir() && strings.HasSuffix(info.Name(), ".zip") {
+			err := os.Remove(path)
+			if err != nil {
+				fmt.Printf("Error removing file %s: %v\n", path, err)
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		fmt.Printf("Error walking through directory %s: %v\n", directory, err)
 	}
 }

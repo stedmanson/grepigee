@@ -71,10 +71,6 @@ func DownloadSharedflowRevision(in chan SharedflowDeployment, environment string
 					return
 				}
 
-				// Delete the zip file
-				if err := os.Remove(outputPath); err != nil {
-					fmt.Printf("Error deleting %s: %v\n", outputPath, err)
-				}
 			}(sharedflow.Name, deployment.Name)
 
 		}
