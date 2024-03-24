@@ -1,5 +1,6 @@
 package apigee
 
+type Deployment interface{}
 type ProxyDeployment struct {
 	Environment  string `json:"environment"`
 	Name         string `json:"name"`

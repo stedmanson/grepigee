@@ -1,75 +1,32 @@
 package apigee
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 )
 
 func GetSharedFlowList() ([]string, error) {
-	var list = new([]string)
-	url := baseURL + "/sharedflows/"
-
-	body, err := Get(url)
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(body, list)
-	if err != nil {
-		return nil, err
-	}
-
-	return *list, nil
+	return GetItemList(baseURL + "/sharedflows/")
 }
 
 func GetSharedflowDeployments(list []string, environment string) chan SharedflowDeployment {
-	var out = make(chan SharedflowDeployment) // Initialize the channel
-	var wg sync.WaitGroup
-
-	for _, proxy := range list {
-		wg.Add(1)
-		go func(proxy string) {
-			defer wg.Done()
-
-			url := baseURL + "/environments/" + environment + "/apis/" + proxy + "/deployments"
-
-			body, err := Get(url)
-			if err != nil {
-				if errors.Is(err, ErrBadRequest) {
-					return
-				} else {
-					fmt.Println(url, err)
-				}
-			}
-
-			var sfd = new(SharedflowDeployment)
-
-			err = json.Unmarshal(body, sfd)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-
-			out <- *sfd
-
-		}(proxy)
-	}
+	genericDeployments := GetDeployments(list, environment, "/sharedflows/")
+	specificDeployments := make(chan SharedflowDeployment)
 
 	go func() {
-		wg.Wait()  // Wait for all goroutines to finish
-		close(out) // Close the channel
+		for deployment := range genericDeployments {
+			if sfd, ok := deployment.(*SharedflowDeployment); ok {
+				specificDeployments <- *sfd
+			}
+		}
+		close(specificDeployments)
 	}()
 
-	return out
+	return specificDeployments
 }
 
 func DownloadSharedflowRevision(in chan SharedflowDeployment, environment string) {
-	var validate []string
-
 	dirPath := filepath.Join(environment, "sharedflows")
 
 	if err := os.MkdirAll(dirPath, os.ModePerm); err != nil {
@@ -80,9 +37,6 @@ func DownloadSharedflowRevision(in chan SharedflowDeployment, environment string
 	for sharedflow := range in {
 		if sharedflow.Environment != environment {
 			continue
-		}
-		if len(sharedflow.Revision) > 1 {
-			validate = append(validate, sharedflow.Name)
 		}
 
 		for _, deployment := range sharedflow.Revision {
@@ -118,5 +72,4 @@ func DownloadSharedflowRevision(in chan SharedflowDeployment, environment string
 		}
 	}
 
-	fmt.Println("Validate Sharedflows:", validate)
 }

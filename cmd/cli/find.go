@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/stedmanson/grepigee/internal/apigee"
 	"github.com/stedmanson/grepigee/internal/output"
@@ -31,8 +29,14 @@ var findCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 
-		processSharedFlows(environment)
-		processProxies(environment)
+		foundSharedflowItems := processSharedFlows(environment)
+		foundProxyItems := processProxies(environment)
+
+		combinedItems := append(foundSharedflowItems, foundProxyItems...)
+
+		output.DisplayAsTable(combinedItems)
+		output.SaveAsCSV(combinedItems, environment+"-output.csv")
+
 		cleanupDirectory(environment)
 	},
 }
@@ -43,11 +47,11 @@ func init() {
 	findCmd.Flags().StringVarP(&environment, "env", "e", "", "Specify the environment to search in")
 }
 
-func processSharedFlows(environment string) {
+func processSharedFlows(environment string) []searcher.Found {
 	sharedflowList, err := apigee.GetSharedFlowList()
 	if err != nil {
 		fmt.Println("Error getting shared flow list:", err)
-		return
+		return nil
 	}
 
 	deployedSharedflowList := apigee.GetSharedflowDeployments(sharedflowList, environment)
@@ -56,20 +60,17 @@ func processSharedFlows(environment string) {
 	foundSharedflowItems, err := searcher.SearchInDirectory(environment+"/sharedflows", "(?i)api-ecs")
 	if err != nil {
 		fmt.Println("Error occurred while searching shared flows:", err)
-		return
+		return nil
 	}
 
-	output.DisplayAsTable(foundSharedflowItems)
-	output.SaveAsCSV(foundSharedflowItems, environment+"-sharedflows.csv")
-
-	cleanupDirectory(environment + "/sharedflows")
+	return foundSharedflowItems
 }
 
-func processProxies(environment string) {
+func processProxies(environment string) []searcher.Found {
 	proxyList, err := apigee.GetProxyList()
 	if err != nil {
 		fmt.Println("Error getting proxy list:", err)
-		return
+		return nil
 	}
 
 	deployedProxyList := apigee.GetProxyDeployments(proxyList, environment)
@@ -79,35 +80,14 @@ func processProxies(environment string) {
 	foundProxyItems, err := searcher.SearchInDirectory(environment+"/proxies", "(?i)api-ecs")
 	if err != nil {
 		fmt.Println("Error occurred while searching proxies:", err)
-		return
+		return nil
 	}
 
-	output.DisplayAsTable(foundProxyItems)
-	output.SaveAsCSV(foundProxyItems, environment+"-proxies.csv")
-
-	cleanupDirectory(environment + "/proxies")
-
+	return foundProxyItems
 }
 
 func cleanupDirectory(directory string) {
-	// Convert to absolute path
-	absPath, err := filepath.Abs(directory)
-	if err != nil {
-		fmt.Printf("Error converting to absolute path: %v\n", err)
-		return
-	}
-
-	// Ensure that we're not deleting root or home directory
-	prohibitedPaths := []string{"/", os.Getenv("HOME")}
-	for _, p := range prohibitedPaths {
-		if absPath == p || strings.HasPrefix(absPath, p+"/") {
-			fmt.Printf("Refusing to delete critical directory: %s\n", directory)
-			return
-		}
-	}
-
-	// Proceed with deletion if the checks pass
-	err = os.RemoveAll(directory)
+	err := os.RemoveAll(directory)
 	if err != nil {
 		fmt.Printf("Error removing directory %s: %v\n", directory, err)
 	} else {

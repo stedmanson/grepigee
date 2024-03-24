@@ -1,74 +1,32 @@
 package apigee
 
 import (
-	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 )
 
 func GetProxyList() ([]string, error) {
-	var list = new([]string)
-	url := baseURL + "/apis/"
-
-	body, err := Get(url)
-	if err != nil {
-		return nil, err
-	}
-
-	err = json.Unmarshal(body, list)
-	if err != nil {
-		return nil, err
-	}
-
-	return *list, nil
+	return GetItemList(baseURL + "/apis/")
 }
 
 func GetProxyDeployments(list []string, environment string) chan ProxyDeployment {
-	var out = make(chan ProxyDeployment) // Initialize the channel
-	var wg sync.WaitGroup
-
-	for _, proxy := range list {
-		wg.Add(1)
-		go func(proxy string) {
-			defer wg.Done()
-
-			url := baseURL + "/environments/" + environment + "/apis/" + proxy + "/deployments"
-
-			body, err := Get(url)
-			if err != nil {
-				if errors.Is(err, ErrBadRequest) {
-					return
-				} else {
-					fmt.Println(url, err)
-				}
-			}
-
-			var pd = new(ProxyDeployment)
-
-			err = json.Unmarshal(body, pd)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-
-			out <- *pd
-
-		}(proxy)
-	}
+	genericDeployments := GetDeployments(list, environment, "/apis/")
+	specificDeployments := make(chan ProxyDeployment)
 
 	go func() {
-		wg.Wait()  // Wait for all goroutines to finish
-		close(out) // Close the channel
+		for deployment := range genericDeployments {
+			if pd, ok := deployment.(*ProxyDeployment); ok {
+				specificDeployments <- *pd
+			}
+		}
+		close(specificDeployments)
 	}()
 
-	return out
+	return specificDeployments
 }
 
 func DownloadProxyRevision(in chan ProxyDeployment, environment string) {
-	var validate []string
 
 	dirPath := filepath.Join(environment, "proxies")
 
@@ -78,9 +36,6 @@ func DownloadProxyRevision(in chan ProxyDeployment, environment string) {
 	}
 
 	for proxy := range in {
-		if len(proxy.Revision) > 1 {
-			validate = append(validate, proxy.Name)
-		}
 		for _, deployment := range proxy.Revision {
 			if deployment.State != "deployed" {
 				continue
@@ -114,5 +69,4 @@ func DownloadProxyRevision(in chan ProxyDeployment, environment string) {
 		}
 	}
 
-	fmt.Println("Validate:", validate)
 }
