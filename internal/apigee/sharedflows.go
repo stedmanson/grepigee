@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 func GetSharedFlowList() ([]string, error) {
@@ -34,6 +35,8 @@ func DownloadSharedflowRevision(in chan SharedflowDeployment, environment string
 		return
 	}
 
+	var wg sync.WaitGroup
+
 	for sharedflow := range in {
 		if sharedflow.Environment != environment {
 			continue
@@ -43,33 +46,40 @@ func DownloadSharedflowRevision(in chan SharedflowDeployment, environment string
 			if deployment.State != "deployed" {
 				continue
 			}
-			url := baseURL + "/sharedflows/" + sharedflow.Name + "/revisions/" + deployment.Name + "?format=bundle"
+			wg.Add(1)
 
-			folderName := fmt.Sprintf("%s-%s", sharedflow.Name, deployment.Name)
-			outputPath := filepath.Join(dirPath, folderName+".zip")
+			go func(sharedflowName, deploymentName string) {
+				url := baseURL + "/sharedflows/" + sharedflowName + "/revisions/" + deploymentName + "?format=bundle"
 
-			// Download the file
-			if err := DownloadBinaryContent(url, outputPath); err != nil {
-				fmt.Printf("Error downloading %s: %v\n", url, err)
-				continue
-			}
+				folderName := fmt.Sprintf("%s-%s", sharedflowName, deploymentName)
+				outputPath := filepath.Join(dirPath, folderName+".zip")
 
-			// Unzip the file into a folder named after the sharedflow and revision
-			unzipPath := filepath.Join(dirPath, folderName)
-			if err := os.MkdirAll(unzipPath, os.ModePerm); err != nil {
-				fmt.Printf("Error creating directory for unzipping: %v\n", err)
-				continue
-			}
-			if err := Unzip(outputPath, unzipPath); err != nil {
-				fmt.Printf("Error unzipping %s: %v\n", outputPath, err)
-				continue
-			}
+				// Download the file
+				if err := DownloadBinaryContent(url, outputPath); err != nil {
+					fmt.Printf("Error downloading %s: %v\n", url, err)
+					return
+				}
 
-			// Delete the zip file
-			if err := os.Remove(outputPath); err != nil {
-				fmt.Printf("Error deleting %s: %v\n", outputPath, err)
-			}
+				// Unzip the file into a folder named after the sharedflow and revision
+				unzipPath := filepath.Join(dirPath, folderName)
+				if err := os.MkdirAll(unzipPath, os.ModePerm); err != nil {
+					fmt.Printf("Error creating directory for unzipping: %v\n", err)
+					return
+				}
+				if err := Unzip(outputPath, unzipPath); err != nil {
+					fmt.Printf("Error unzipping %s: %v\n", outputPath, err)
+					return
+				}
+
+				// Delete the zip file
+				if err := os.Remove(outputPath); err != nil {
+					fmt.Printf("Error deleting %s: %v\n", outputPath, err)
+				}
+			}(sharedflow.Name, deployment.Name)
+
 		}
 	}
+
+	wg.Done()
 
 }
