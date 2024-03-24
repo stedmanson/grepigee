@@ -3,6 +3,8 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/stedmanson/grepigee/internal/apigee"
 	"github.com/stedmanson/grepigee/internal/output"
@@ -88,7 +90,24 @@ func processProxies(environment string) {
 }
 
 func cleanupDirectory(directory string) {
-	err := os.RemoveAll(directory)
+	// Convert to absolute path
+	absPath, err := filepath.Abs(directory)
+	if err != nil {
+		fmt.Printf("Error converting to absolute path: %v\n", err)
+		return
+	}
+
+	// Ensure that we're not deleting root or home directory
+	prohibitedPaths := []string{"/", os.Getenv("HOME")}
+	for _, p := range prohibitedPaths {
+		if absPath == p || strings.HasPrefix(absPath, p+"/") {
+			fmt.Printf("Refusing to delete critical directory: %s\n", directory)
+			return
+		}
+	}
+
+	// Proceed with deletion if the checks pass
+	err = os.RemoveAll(directory)
 	if err != nil {
 		fmt.Printf("Error removing directory %s: %v\n", directory, err)
 	} else {
