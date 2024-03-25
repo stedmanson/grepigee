@@ -19,7 +19,7 @@ func SaveAsCSV(foundItems []searcher.Found, filePath string) error {
 	defer writer.Flush()
 
 	// Writing the header
-	header := []string{"Folder Name", "File Name", "Line Number", "Match Text"}
+	header := []string{"Folder Name", "Revision", "File Name", "Line Number", "Match Text"}
 	if err := writer.Write(header); err != nil {
 		return fmt.Errorf("error writing header to CSV file: %v", err)
 	}
@@ -30,8 +30,16 @@ func SaveAsCSV(foundItems []searcher.Found, filePath string) error {
 			// Skip entries with errors
 			continue
 		}
+
+		name, revision, err := extractNameAndRevision(item.FolderName)
+		if err != nil {
+			fmt.Printf("Error extracting name and revision: %v\n", err)
+			continue
+		}
+
 		record := []string{
-			item.FolderName,
+			name,
+			revision,
 			item.FileName,
 			fmt.Sprintf("%d", item.LineNum),
 			item.MatchText,

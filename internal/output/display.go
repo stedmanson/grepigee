@@ -16,7 +16,7 @@ func DisplayAsTable(foundItems []searcher.Found) {
 	}
 
 	// Initialize the table with headers in the desired order
-	tbl := table.New("Folder Name", "File Name", "Line Number", "Match Text").WithWriter(os.Stdout)
+	tbl := table.New("Folder Name", "Revision", "File Name", "Line Number", "Match Text").WithWriter(os.Stdout)
 
 	for _, item := range foundItems {
 		if item.Error != nil {
@@ -24,8 +24,14 @@ func DisplayAsTable(foundItems []searcher.Found) {
 			continue
 		}
 
+		name, revision, err := extractNameAndRevision(item.FolderName)
+		if err != nil {
+			fmt.Printf("Error extracting name and revision: %v\n", err)
+			continue
+		}
+
 		// Add a row for each item, respecting the specified order
-		tbl.AddRow(item.FolderName, item.FileName, item.LineNum, item.MatchText)
+		tbl.AddRow(name, revision, item.FileName, item.LineNum, item.MatchText)
 	}
 
 	// Print the table
