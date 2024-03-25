@@ -43,7 +43,7 @@ var findCmd = &cobra.Command{
 		combinedItems := append(foundSharedflowItems, foundProxyItems...)
 
 		output.DisplayAsTable(combinedItems)
-		output.SaveAsCSV(combinedItems, environment+"-output.csv")
+		output.SaveAsCSV(combinedItems, environment+"-"+regExpression+"-output.csv")
 
 		cleanupDirectory(environment)
 	},

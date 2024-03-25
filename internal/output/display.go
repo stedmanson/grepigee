@@ -37,4 +37,5 @@ func DisplayAsTable(foundItems []searcher.Found) {
 	// Print the table
 	tbl.Print()
 	fmt.Println()
+	fmt.Println("Found", len(foundItems), "items.")
 }
