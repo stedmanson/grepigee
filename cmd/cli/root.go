@@ -9,6 +9,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var environment string   // To store the environment name
+var regExpression string // To store the regex pattern to search for
+var save bool            // To store the save value for csv creation
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "github.com/stedmanson/grepigee",
@@ -43,4 +47,9 @@ func init() {
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	rootCmd.PersistentFlags().StringVarP(&environment, "env", "e", "", "Specify the environment to search in")
+	rootCmd.PersistentFlags().StringVarP(&regExpression, "expr", "x", "", "Specify the regex pattern to search for")
+	rootCmd.PersistentFlags().BoolVarP(&save, "save", "s", false, "Save output in a csv file")
+
 }

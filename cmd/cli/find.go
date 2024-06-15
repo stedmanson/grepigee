@@ -13,10 +13,6 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var environment string   // To store the environment name
-var regExpression string // To store the regex pattern to search for
-var save bool            // To store the save value for csv creation
-
 // findCmd represents the find command
 var findCmd = &cobra.Command{
 	Use:   "find",
@@ -54,11 +50,6 @@ var findCmd = &cobra.Command{
 
 func init() {
 	rootCmd.AddCommand(findCmd)
-
-	findCmd.Flags().StringVarP(&environment, "env", "e", "", "Specify the environment to search in")
-	findCmd.Flags().StringVarP(&regExpression, "expr", "x", "", "Specify the regex pattern to search for")
-	findCmd.Flags().BoolVarP(&save, "save", "s", false, "Save output in a csv file")
-
 }
 
 func processSharedFlows(environment string, regExpression string) []searcher.Found {
