@@ -9,15 +9,25 @@ import (
 	"github.com/stedmanson/grepigee/internal/searcher"
 )
 
-func DisplayAsTable(foundItems []searcher.Found) {
-	if len(foundItems) == 0 {
+func DisplayAsTable(headers []string, data [][]string) {
+	if len(data) == 0 {
 		fmt.Println("No items found.")
 		return
 	}
 
-	// Initialize the tablewriter with os.Stdout as the output
+	table := getStandardTable()
+	table.SetHeader(headers)
+
+	for _, item := range data {
+		table.Append(item)
+	}
+
+	table.Render()
+	fmt.Println("Found", len(data), "items.")
+}
+
+func getStandardTable() *tablewriter.Table {
 	table := tablewriter.NewWriter(os.Stdout)
-	table.SetHeader([]string{"Folder Name", "Revision", "File Name", "Line Number", "Match Text"})
 	table.SetAutoWrapText(false)
 	table.SetAutoFormatHeaders(true)
 	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
@@ -30,22 +40,21 @@ func DisplayAsTable(foundItems []searcher.Found) {
 	table.SetTablePadding("\t")
 	table.SetNoWhiteSpace(true)
 
-	for _, item := range foundItems {
-		if item.Error != nil {
-			continue // Skip entries with errors
-		}
+	return table
+}
 
+func FormatFoundData(items []searcher.Found) ([]string, [][]string) {
+	var data [][]string
+
+	for _, item := range items {
 		name, revision, err := extractNameAndRevision(item.FolderName)
 		if err != nil {
 			fmt.Printf("Error extracting name and revision: %v\n", err)
 			continue
 		}
 
-		// Add a row for each item
-		table.Append([]string{name, revision, item.FileName, strconv.Itoa(item.LineNum), item.MatchText})
+		data = append(data, []string{name, revision, item.FileName, strconv.Itoa(item.LineNum), item.MatchText})
 	}
 
-	// Render the table to the output
-	table.Render()
-	fmt.Println("Found", len(foundItems), "items.")
+	return []string{"Folder Name", "Revision", "File Name", "Line Number", "Match Text"}, data
 }

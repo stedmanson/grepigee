@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/stedmanson/grepigee/internal/apigee"
 	"github.com/stedmanson/grepigee/internal/output"
+	"github.com/stedmanson/grepigee/internal/searcher"
 
 	"github.com/spf13/cobra"
 )
@@ -30,8 +32,9 @@ var proxyFindCmd = &cobra.Command{
 	},
 	Run: func(cmd *cobra.Command, args []string) {
 		foundProxyItems := processProxies(environment, regExpression)
+		headers, data := output.FormatFoundData(foundProxyItems)
 
-		output.DisplayAsTable(foundProxyItems)
+		output.DisplayAsTable(headers, data)
 
 		if save {
 			output.SaveAsCSV(foundProxyItems, "proxy-find-"+environment+"-"+regExpression+".csv")
@@ -43,4 +46,28 @@ var proxyFindCmd = &cobra.Command{
 
 func init() {
 	proxyCmd.AddCommand(proxyFindCmd)
+}
+
+func processProxies(environment string, regExpression string) []searcher.Found {
+	proxyList, err := apigee.GetProxyList()
+	if err != nil {
+		fmt.Println("Error getting proxy list:", err)
+		return nil
+	}
+
+	deployedProxyList := apigee.GetProxyDeployments(proxyList, environment)
+
+	apigee.DownloadProxyRevision(deployedProxyList, environment)
+
+	removeZipFiles(environment + "/proxies")
+
+	foundProxyItems, err := searcher.SearchInDirectory(environment+"/proxies", regExpression)
+	if err != nil {
+		fmt.Println("Error occurred while searching proxies:", err)
+		return nil
+	}
+
+	cleanupDirectory(environment)
+
+	return foundProxyItems
 }

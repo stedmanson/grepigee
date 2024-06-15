@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/stedmanson/grepigee/internal/apigee"
 	"github.com/stedmanson/grepigee/internal/output"
+	"github.com/stedmanson/grepigee/internal/searcher"
 
 	"github.com/spf13/cobra"
 )
@@ -31,7 +33,9 @@ var sharedflowFindCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		foundSharedflowItems := processSharedFlows(environment, regExpression)
 
-		output.DisplayAsTable(foundSharedflowItems)
+		headers, data := output.FormatFoundData(foundSharedflowItems)
+
+		output.DisplayAsTable(headers, data)
 
 		if save {
 			output.SaveAsCSV(foundSharedflowItems, "sharedflow-find-"+environment+"-"+regExpression+".csv")
@@ -43,4 +47,26 @@ var sharedflowFindCmd = &cobra.Command{
 
 func init() {
 	sharedflowCmd.AddCommand(sharedflowFindCmd)
+}
+
+func processSharedFlows(environment string, regExpression string) []searcher.Found {
+	sharedflowList, err := apigee.GetSharedFlowList()
+	if err != nil {
+		fmt.Println("Error getting shared flow list:", err)
+		return nil
+	}
+
+	deployedSharedflowList := apigee.GetSharedflowDeployments(sharedflowList, environment)
+
+	apigee.DownloadSharedflowRevision(deployedSharedflowList, environment)
+
+	removeZipFiles(environment + "/sharedflows")
+
+	foundSharedflowItems, err := searcher.SearchInDirectory(environment+"/sharedflows", regExpression)
+	if err != nil {
+		fmt.Println("Error occurred while searching shared flows:", err)
+		return nil
+	}
+
+	return foundSharedflowItems
 }
