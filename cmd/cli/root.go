@@ -1,7 +1,7 @@
 /*
 Copyright © 2024 NAME HERE <EMAIL ADDRESS>
 */
-package main
+package cli
 
 import (
 	"os"
