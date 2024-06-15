@@ -15,6 +15,7 @@ import (
 
 var environment string   // To store the environment name
 var regExpression string // To store the regex pattern to search for
+var save bool            // To store the save value for csv creation
 
 // findCmd represents the find command
 var findCmd = &cobra.Command{
@@ -43,7 +44,9 @@ var findCmd = &cobra.Command{
 		combinedItems := append(foundSharedflowItems, foundProxyItems...)
 
 		output.DisplayAsTable(combinedItems)
-		output.SaveAsCSV(combinedItems, environment+"-"+regExpression+"-output.csv")
+		if save {
+			output.SaveAsCSV(combinedItems, environment+"-"+regExpression+"-output.csv")
+		}
 
 		cleanupDirectory(environment)
 	},
@@ -54,6 +57,7 @@ func init() {
 
 	findCmd.Flags().StringVarP(&environment, "env", "e", "", "Specify the environment to search in")
 	findCmd.Flags().StringVarP(&regExpression, "expr", "x", "", "Specify the regex pattern to search for")
+	findCmd.Flags().BoolVarP(&save, "save", "s", false, "Save output in a csv file")
 
 }
 
