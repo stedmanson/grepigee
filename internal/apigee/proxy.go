@@ -8,7 +8,7 @@ import (
 )
 
 func GetProxyList() ([]string, error) {
-	return GetItemList(baseURL + "/apis/")
+	return GetItemList(baseURL + "organizations/woolworths/apis/")
 }
 
 func GetProxyDeployments(list []string, environment string) chan ProxyDeployment {
@@ -48,7 +48,7 @@ func DownloadProxyRevision(in chan ProxyDeployment, environment string) {
 
 			go func(proxyName, deploymentName string) {
 				defer wg.Done()
-				url := baseURL + "/apis/" + proxyName + "/revisions/" + deploymentName + "?format=bundle"
+				url := baseURL + "organizations/woolworths/apis/" + proxyName + "/revisions/" + deploymentName + "?format=bundle"
 
 				folderName := fmt.Sprintf("%s-%s", proxyName, deploymentName)
 				outputPath := filepath.Join(dirPath, folderName+".zip")

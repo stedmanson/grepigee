@@ -32,7 +32,7 @@ func GetDeployments(list []string, environment, path string) chan Deployment {
 		go func(item string) {
 			defer wg.Done()
 
-			url := baseURL + "/environments/" + environment + path + item + "/deployments"
+			url := baseURL + "organizations/woolworths/environments/" + environment + path + item + "/deployments"
 			body, err := Get(url)
 			if err != nil {
 				if errors.Is(err, ErrBadRequest) {

@@ -8,7 +8,7 @@ import (
 )
 
 func GetSharedFlowList() ([]string, error) {
-	return GetItemList(baseURL + "/sharedflows/")
+	return GetItemList(baseURL + "organizations/woolworths/sharedflows/")
 }
 
 func GetSharedflowDeployments(list []string, environment string) chan SharedflowDeployment {
@@ -49,7 +49,7 @@ func DownloadSharedflowRevision(in chan SharedflowDeployment, environment string
 			wg.Add(1)
 
 			go func(sharedflowName, deploymentName string) {
-				url := baseURL + "/sharedflows/" + sharedflowName + "/revisions/" + deploymentName + "?format=bundle"
+				url := baseURL + "organizations/woolworths/sharedflows/" + sharedflowName + "/revisions/" + deploymentName + "?format=bundle"
 
 				folderName := fmt.Sprintf("%s-%s", sharedflowName, deploymentName)
 				outputPath := filepath.Join(dirPath, folderName+".zip")
