@@ -22,3 +22,5 @@ go.work
 
 # Remove the csv files
 *.csv
+
+*.DS_store

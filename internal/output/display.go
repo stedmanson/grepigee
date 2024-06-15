@@ -3,10 +3,10 @@ package output
 import (
 	"fmt"
 	"os"
+	"strconv"
 
+	"github.com/olekukonko/tablewriter"
 	"github.com/stedmanson/grepigee/internal/searcher"
-
-	"github.com/rodaine/table"
 )
 
 func DisplayAsTable(foundItems []searcher.Found) {
@@ -15,13 +15,24 @@ func DisplayAsTable(foundItems []searcher.Found) {
 		return
 	}
 
-	// Initialize the table with headers in the desired order
-	tbl := table.New("Folder Name", "Revision", "File Name", "Line Number", "Match Text").WithWriter(os.Stdout)
+	// Initialize the tablewriter with os.Stdout as the output
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetHeader([]string{"Folder Name", "Revision", "File Name", "Line Number", "Match Text"})
+	table.SetAutoWrapText(false)
+	table.SetAutoFormatHeaders(true)
+	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+	table.SetAlignment(tablewriter.ALIGN_LEFT)
+	table.SetCenterSeparator("")
+	table.SetColumnSeparator("")
+	table.SetRowSeparator("")
+	table.SetHeaderLine(false)
+	table.SetBorder(false)
+	table.SetTablePadding("\t")
+	table.SetNoWhiteSpace(true)
 
 	for _, item := range foundItems {
 		if item.Error != nil {
-			// Skip entries with errors
-			continue
+			continue // Skip entries with errors
 		}
 
 		name, revision, err := extractNameAndRevision(item.FolderName)
@@ -30,12 +41,11 @@ func DisplayAsTable(foundItems []searcher.Found) {
 			continue
 		}
 
-		// Add a row for each item, respecting the specified order
-		tbl.AddRow(name, revision, item.FileName, item.LineNum, item.MatchText)
+		// Add a row for each item
+		table.Append([]string{name, revision, item.FileName, strconv.Itoa(item.LineNum), item.MatchText})
 	}
 
-	// Print the table
-	tbl.Print()
-	fmt.Println()
+	// Render the table to the output
+	table.Render()
 	fmt.Println("Found", len(foundItems), "items.")
 }
