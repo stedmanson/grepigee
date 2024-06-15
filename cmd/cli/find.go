@@ -93,6 +93,8 @@ func processProxies(environment string, regExpression string) []searcher.Found {
 		return nil
 	}
 
+	cleanupDirectory(environment)
+
 	return foundProxyItems
 }
 
