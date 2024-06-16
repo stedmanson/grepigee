@@ -24,8 +24,6 @@ func ListAllTraffic(environment string, filterProxy string, from string, to stri
 
 	url := baseURL + "organizations/woolworths/environments/" + environment + "/stats/" + dimension + "?" + params.Encode()
 
-	fmt.Println(url)
-
 	body, err := Get(url)
 	if err != nil {
 		return nil, nil, err

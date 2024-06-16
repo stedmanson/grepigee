@@ -39,10 +39,6 @@ var statsListTrafficCmd = &cobra.Command{
 		}
 
 		output.DisplayAsTable(headers, data)
-
-		// if save {
-		// 	output.SaveAsCSV(foundProxyItems, "proxy-find-"+environment+"-"+regExpression+".csv")
-		// }
 	},
 }
 
