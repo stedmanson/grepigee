@@ -4,7 +4,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
+	"time"
+
+	"golang.org/x/text/language"
+	"golang.org/x/text/message"
 )
 
 func GetItemList(url string) ([]string, error) {
@@ -66,4 +71,30 @@ func GetDeployments(list []string, environment, path string) chan Deployment {
 	}()
 
 	return out
+}
+
+func humanReadable(n string, asTime bool) (string, error) {
+	number, err := strconv.ParseFloat(n, 64)
+	if err != nil {
+		return "", fmt.Errorf("error converting string to float64: %v", err)
+	}
+
+	intNumber := int64(number)
+
+	p := message.NewPrinter(language.English)
+
+	if asTime {
+		duration := time.Duration(intNumber) * time.Millisecond // Assuming input is in milliseconds
+		if duration.Hours() >= 1 {
+			return fmt.Sprintf("%dh %dm %ds", int(duration.Hours()), int(duration.Minutes())%60, int(duration.Seconds())%60), nil
+		} else if duration.Minutes() >= 1 {
+			return fmt.Sprintf("%dm %ds", int(duration.Minutes()), int(duration.Seconds())%60), nil
+		} else if duration.Seconds() >= 1 {
+			return fmt.Sprintf("%ds", int(duration.Seconds())), nil
+		} else {
+			return fmt.Sprintf("%dms", int(duration.Milliseconds())), nil
+		}
+	} else {
+		return p.Sprintf("%d", intNumber), nil
+	}
 }

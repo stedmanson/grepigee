@@ -39,3 +39,22 @@ type SharedflowDeployment struct {
 		State string `json:"state"`
 	} `json:"revision"`
 }
+
+type StatsTrafficList struct {
+	Environments []Environment `json:"environments,omitempty"`
+}
+
+type Environment struct {
+	Name       string      `json:"name,omitempty"`
+	Dimensions []Dimension `json:"dimensions,omitempty"`
+}
+
+type Dimension struct {
+	Name    string   `json:"name,omitempty"`
+	Metrics []Metric `json:"metrics,omitempty"`
+}
+
+type Metric struct {
+	Name   string   `json:"name,omitempty"`
+	Values []string `json:"values,omitempty"`
+}

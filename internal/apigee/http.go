@@ -37,7 +37,6 @@ func checkResponseStatus(resp *http.Response) error {
 }
 
 func Get(url string) ([]byte, error) {
-	fmt.Println(url)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("error creating request: %v", err)
