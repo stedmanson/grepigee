@@ -9,6 +9,7 @@ import (
 	"github.com/stedmanson/grepigee/internal/output"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // statsListTrafficCmd represents the find command for proxies
@@ -19,7 +20,13 @@ var statsListTrafficCmd = &cobra.Command{
 	PreRun: func(cmd *cobra.Command, args []string) {
 		// Check if the environment flag was set by the user
 		if environment == "" {
-			fmt.Println("Error: --env flag is required")
+			// If not set via flag, try to get it from Viper
+			environment = viper.GetString("environment")
+		}
+
+		// If it's still empty after checking Viper, then it's an error
+		if environment == "" {
+			fmt.Println("Error: environment is not set. Use --env flag or set it in the config file.")
 			os.Exit(1)
 		}
 	},
