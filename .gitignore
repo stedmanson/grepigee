@@ -24,4 +24,8 @@ go.work
 *.csv
 
 *.DS_store
+<<<<<<< HEAD
 /tmp
+=======
+grepigee
+>>>>>>> 530bc2f460a026482eb1298234e8165e96c8cd14
