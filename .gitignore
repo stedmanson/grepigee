@@ -24,3 +24,4 @@ go.work
 *.csv
 
 *.DS_store
+/tmp

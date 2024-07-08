@@ -26,7 +26,7 @@ func ListAllTraffic(environment string, filterProxy string, from string, to stri
 
 	body, err := Get(url)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("error calling %s: %s", url, err)
 	}
 
 	err = json.Unmarshal(body, trafficList)
