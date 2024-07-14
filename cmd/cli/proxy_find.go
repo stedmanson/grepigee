@@ -55,9 +55,17 @@ func processProxies(environment string, regExpression string) []searcher.Found {
 		return nil
 	}
 
-	deployedProxyList := apigee.GetProxyDeployments(proxyList, environment)
+	deployedProxyList, undeployedEntities := apigee.StreamProxyDeployments(proxyList, environment)
 
-	apigee.DownloadProxyRevision(deployedProxyList, environment)
+	done := apigee.DownloadProxyRevision(deployedProxyList, environment)
+
+	go func() {
+		for range undeployedEntities {
+			// draining undeployed as not needed for scanning
+		}
+	}()
+
+	<-done
 
 	removeZipFiles(environment + "/proxies")
 

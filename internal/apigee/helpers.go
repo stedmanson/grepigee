@@ -41,6 +41,11 @@ func GetDeployments(list []string, environment, path string) chan Deployment {
 			body, err := Get(url)
 			if err != nil {
 				if errors.Is(err, ErrBadRequest) {
+					out <- &UndeployedEntity{
+						Name:        item,
+						Environment: environment,
+						State:       "undeployed",
+					}
 					return
 				} else {
 					fmt.Printf("Error fetching deployments for %s: %v\n", item, err)

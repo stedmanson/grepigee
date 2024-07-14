@@ -23,7 +23,7 @@ func DisplayAsTable(headers []string, data [][]string) {
 	}
 
 	table.Render()
-	fmt.Println("Found", len(data), "items.")
+	fmt.Println("\nFound", len(data), "items.")
 }
 
 func getStandardTable() *tablewriter.Table {
@@ -49,7 +49,6 @@ func FormatFoundData(items []searcher.Found) ([]string, [][]string) {
 	for _, item := range items {
 		name, revision, err := extractNameAndRevision(item.FolderName)
 		if err != nil {
-			fmt.Printf("Error extracting name and revision: %v\n", err)
 			continue
 		}
 

@@ -2,72 +2,175 @@ package cmd
 
 import (
 	"fmt"
-	"os"
-
-	"github.com/stedmanson/grepigee/internal/apigee"
-	"github.com/stedmanson/grepigee/internal/output"
-	"github.com/stedmanson/grepigee/internal/searcher"
+	"sort"
+	"strings"
+	"sync"
+	"time"
 
 	"github.com/spf13/cobra"
+	"github.com/stedmanson/grepigee/internal/apigee"
+	"github.com/stedmanson/grepigee/internal/output"
 )
 
-// proxyFindCmd represents the find command for proxies
-var proxyFindCmd = &cobra.Command{
-	Use:   "find",
-	Short: "Search for regex patterns in Apigee proxies.",
-	Long: `Finds and reports occurrences of a specified regex pattern within a proxy. 
-	This tool scans through the proxy configurations in your Apigee environment, helping you quickly identify and locate usage of specific patterns. 
-	It's particularly useful for auditing, troubleshooting, or ensuring consistency across your API configurations.`,
-	PreRun: func(cmd *cobra.Command, args []string) {
-		// Check if the environment flag was set by the user
-		if environment == "" {
-			fmt.Println("Error: --env flag is required")
-			os.Exit(1)
-		}
+type ProxyDeploymentInfo struct {
+	Name        string
+	Version     string
+	State       string
+	Environment string
+}
 
-		if regExpression == "" {
-			fmt.Println("Error: --expr flag is required")
-			os.Exit(1)
-		}
-	},
+var proxyDeploymentsCmd = &cobra.Command{
+	Use:   "deployments",
+	Short: "List all deployments in Apigee proxies across environments.",
+	Long:  `Lists all proxy deployments across specified Apigee environments.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		foundProxyItems := processProxies(environment, regExpression)
-		headers, data := output.FormatFoundData(foundProxyItems)
+		environments, _ := apigee.GetEnvironments()
+		allDeployments := processAllEnvironments(environments)
 
+		headers, data := formatDeploymentData(allDeployments, environments)
 		output.DisplayAsTable(headers, data)
-
-		if save {
-			output.SaveAsCSV(foundProxyItems, "proxy-find-"+environment+"-"+regExpression+".csv")
-		}
-
-		cleanupDirectory(environment)
 	},
 }
 
 func init() {
-	proxyCmd.AddCommand(proxyFindCmd)
+	proxyCmd.AddCommand(proxyDeploymentsCmd)
 }
 
-func processProxies(environment string, regExpression string) []searcher.Found {
+func processAllEnvironments(environments []string) []ProxyDeploymentInfo {
+	var allDeployments []ProxyDeploymentInfo
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+
+	for _, env := range environments {
+		wg.Add(1)
+		go func(environment string) {
+			defer wg.Done()
+			deployments := processProxyDeployments(environment)
+
+			mu.Lock()
+			allDeployments = append(allDeployments, deployments...)
+			mu.Unlock()
+		}(env)
+	}
+
+	// Use a timeout for the entire process
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+
+	case <-time.After(10 * time.Minute): // Adjust timeout as needed
+		fmt.Println("Warning: Timeout while processing environments")
+	}
+
+	return allDeployments
+}
+
+func processProxyDeployments(environment string) []ProxyDeploymentInfo {
 	proxyList, err := apigee.GetProxyList()
 	if err != nil {
-		fmt.Println("Error getting proxy list:", err)
+		fmt.Printf("Error getting proxy list: %v\n", err)
 		return nil
 	}
 
-	deployedProxyList := apigee.GetProxyDeployments(proxyList, environment)
+	deployedProxyList, undeployedEntities := apigee.StreamProxyDeployments(proxyList, environment)
 
-	apigee.DownloadProxyRevision(deployedProxyList, environment)
+	var deployments []ProxyDeploymentInfo
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	wg.Add(2)
 
-	removeZipFiles(environment + "/proxies")
+	go func() {
+		defer wg.Done()
+		for dep := range deployedProxyList {
+			for _, rev := range dep.Revision {
+				if rev.State == "deployed" {
+					mu.Lock()
+					deployments = append(deployments, ProxyDeploymentInfo{
+						Name:        dep.Name,
+						Version:     rev.Name,
+						State:       "deployed",
+						Environment: environment,
+					})
+					mu.Unlock()
+				}
+			}
+		}
+	}()
 
-	foundProxyItems, err := searcher.SearchInDirectory(environment+"/proxies", regExpression)
-	if err != nil {
-		fmt.Println("Error occurred while searching proxies:", err)
-		return nil
+	go func() {
+		defer wg.Done()
+		for dep := range undeployedEntities {
+			mu.Lock()
+			deployments = append(deployments, ProxyDeploymentInfo{
+				Name:        dep.Name,
+				Version:     "",
+				State:       "undeployed",
+				Environment: environment,
+			})
+			mu.Unlock()
+		}
+	}()
+
+	// Use a timeout to prevent indefinite hanging
+	done := make(chan struct{})
+	go func() {
+		wg.Wait()
+		close(done)
+	}()
+
+	select {
+	case <-done:
+		// All goroutines finished successfully
+	case <-time.After(2 * time.Minute): // Adjust timeout as needed
+		fmt.Printf("Warning: Timeout while processing environment %s\n", environment)
 	}
 
-	cleanupDirectory(environment)
+	return deployments
+}
 
-	return foundProxyItems
+func formatDeploymentData(deployments []ProxyDeploymentInfo, environments []string) ([]string, [][]string) {
+	headers := append([]string{"Name"}, environments...)
+
+	// Create a map to hold deployment info for each proxy
+	proxyMap := make(map[string]map[string][]string)
+
+	for _, dep := range deployments {
+		if _, exists := proxyMap[dep.Name]; !exists {
+			proxyMap[dep.Name] = make(map[string][]string)
+		}
+		if dep.State == "deployed" {
+			proxyMap[dep.Name][dep.Environment] = append(proxyMap[dep.Name][dep.Environment], dep.Version)
+		} else {
+			proxyMap[dep.Name][dep.Environment] = append(proxyMap[dep.Name][dep.Environment], "undeployed")
+		}
+	}
+
+	var data [][]string
+
+	// Sort proxy names for consistent output
+	var proxyNames []string
+	for name := range proxyMap {
+		proxyNames = append(proxyNames, name)
+	}
+	sort.Strings(proxyNames)
+
+	for _, name := range proxyNames {
+		row := []string{name}
+		for _, env := range environments {
+			versions, exists := proxyMap[name][env]
+			if !exists {
+				row = append(row, "-")
+			} else {
+				row = append(row, strings.Join(versions, ","))
+			}
+		}
+		data = append(data, row)
+	}
+
+	return headers, data
 }
