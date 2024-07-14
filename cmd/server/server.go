@@ -4,7 +4,6 @@ import (
 	"html/template"
 	"io"
 	"net/http"
-	"path/filepath"
 	"time"
 
 	"github.com/labstack/gommon/log"
@@ -12,6 +11,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/stedmanson/grepigee/internal/apigee"
+	"github.com/stedmanson/grepigee/internal/deployments"
 )
 
 type ProxyStats struct {
@@ -42,6 +42,7 @@ func main() {
 	// Middleware
 	e.Use(middleware.Logger())
 	e.Use(middleware.Recover())
+	e.Use(middleware.CORS()) // Enable CORS for all routes
 
 	e.Use(middleware.RecoverWithConfig(middleware.RecoverConfig{
 		StackSize: 1 << 10, // 1 KB
@@ -54,33 +55,21 @@ func main() {
 
 	e.Logger.SetLevel(log.DEBUG)
 
-	// Initialize templates
-	templatesDir := filepath.Join("web", "templates") // Adjust this path as needed
-	t := &Template{
-		templates: template.Must(template.ParseGlob(filepath.Join(templatesDir, "*.html"))),
-	}
-	e.Renderer = t
-
 	// Routes
-	e.GET("/", handleHome)
-	e.GET("/stats", handleStats)
-	e.GET("/grep", handleGrep)
-	e.GET("/api/stats", handleAPIStats)
+	api := e.Group("/api")
+	api.GET("/stats", handleAPIStats)
+	api.GET("/deployments", handleAPIDeployments)
+
+	//Serve React App
+	e.Static("/", "frontend/build")
+
+	//Handle client-side routing
+	e.GET("/*", func(c echo.Context) error {
+		return c.File("frontend/build/index.html")
+	})
 
 	// Start server
 	e.Logger.Fatal(e.Start(":8080"))
-}
-
-func handleHome(c echo.Context) error {
-	return c.Render(http.StatusOK, "layout", PageData{Title: "Home"})
-}
-
-func handleStats(c echo.Context) error {
-	return c.Render(http.StatusOK, "layout", PageData{Title: "Stats"})
-}
-
-func handleGrep(c echo.Context) error {
-	return c.Render(http.StatusOK, "layout", PageData{Title: "Grep"})
 }
 
 func handleAPIStats(c echo.Context) error {
@@ -129,4 +118,21 @@ func calculateFromTime(toTime time.Time, timeRange string) time.Time {
 	default:
 		return toTime.Add(-1 * time.Hour) // Default to 1 hour if invalid input
 	}
+}
+
+func handleAPIDeployments(c echo.Context) error {
+	environments, err := apigee.GetEnvironments()
+	if err != nil {
+		c.Logger().Errorf("Error getting environments: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to get environments"})
+	}
+
+	allDeployments := deployments.ProcessAllEnvironments(environments)
+	headers, data := deployments.FormatDeploymentData(allDeployments, environments)
+	response := map[string]interface{}{
+		"headers": headers,
+		"data":    data,
+	}
+
+	return c.JSON(http.StatusOK, response)
 }
