@@ -1,4 +1,4 @@
-package deployments
+package shared_ops
 
 import (
 	"sort"

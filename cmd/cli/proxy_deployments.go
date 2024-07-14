@@ -3,8 +3,8 @@ package cmd
 import (
 	"github.com/spf13/cobra"
 	"github.com/stedmanson/grepigee/internal/apigee"
-	"github.com/stedmanson/grepigee/internal/deployments"
 	"github.com/stedmanson/grepigee/internal/output"
+	"github.com/stedmanson/grepigee/internal/shared_ops"
 )
 
 var proxyDeploymentsCmd = &cobra.Command{
@@ -13,9 +13,9 @@ var proxyDeploymentsCmd = &cobra.Command{
 	Long:  `Lists all proxy deployments across specified Apigee environments.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		environments, _ := apigee.GetEnvironments()
-		allDeployments := deployments.ProcessAllEnvironments(environments)
+		allDeployments := shared_ops.ProcessAllEnvironments(environments)
 
-		headers, data := deployments.FormatDeploymentData(allDeployments, environments)
+		headers, data := shared_ops.FormatDeploymentData(allDeployments, environments)
 		output.DisplayAsTable(headers, data)
 	},
 }

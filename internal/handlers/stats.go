@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/labstack/echo/v4"
-	"github.com/stedmanson/grepigee/internal/apigee"
 	"github.com/stedmanson/grepigee/internal/cache"
+	"github.com/stedmanson/grepigee/internal/shared_ops"
 	"github.com/stedmanson/grepigee/internal/utils"
 )
 
@@ -31,18 +31,17 @@ func HandleAPIStats(c echo.Context) error {
 	toTime := time.Now().UTC()
 	fromTime := utils.CalculateFromTime(toTime, timeRange)
 
-	toStr := toTime.Format("01/02/2006 15:04")
-	fromStr := fromTime.Format("01/02/2006 15:04")
-
-	headers, data, err := apigee.ListAllTraffic("prod", filterProxy, fromStr, toStr)
-	if err != nil {
-		c.Logger().Errorf("Error in ListAllTraffic: %v", err)
-		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	req := shared_ops.StatsRequest{
+		Environment: "prod",
+		FilterProxy: filterProxy,
+		FromTime:    fromTime,
+		ToTime:      toTime,
 	}
 
-	response := map[string]interface{}{
-		"headers": headers,
-		"data":    data,
+	response, err := shared_ops.GetTrafficStats(req, true)
+	if err != nil {
+		c.Logger().Errorf("Error in GetTrafficStats: %v", err)
+		return c.JSON(http.StatusInternalServerError, map[string]string{"error": err.Error()})
 	}
 
 	jsonResponse, _ := json.Marshal(response)

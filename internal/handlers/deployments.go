@@ -8,7 +8,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/stedmanson/grepigee/internal/apigee"
 	"github.com/stedmanson/grepigee/internal/cache"
-	"github.com/stedmanson/grepigee/internal/deployments"
+	"github.com/stedmanson/grepigee/internal/shared_ops"
 )
 
 func HandleAPIDeployments(c echo.Context) error {
@@ -27,8 +27,8 @@ func HandleAPIDeployments(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, map[string]string{"error": "Failed to get environments"})
 	}
 
-	allDeployments := deployments.ProcessAllEnvironments(environments)
-	headers, data := deployments.FormatDeploymentData(allDeployments, environments)
+	allDeployments := shared_ops.ProcessAllEnvironments(environments)
+	headers, data := shared_ops.FormatDeploymentData(allDeployments, environments)
 	response := map[string]interface{}{
 		"headers": headers,
 		"data":    data,
