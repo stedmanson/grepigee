@@ -1,42 +1,31 @@
 package main
 
 import (
-	"html/template"
-	"io"
+	"context"
+	"encoding/json"
 	"net/http"
 	"time"
 
 	"github.com/labstack/gommon/log"
 
+	"github.com/go-redis/redis/v8"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/stedmanson/grepigee/internal/apigee"
 	"github.com/stedmanson/grepigee/internal/deployments"
 )
 
-type ProxyStats struct {
-	ProxyName                 string `json:"proxyName"`
-	TrafficCount              string `json:"trafficCount"`
-	RequestProcessingLatency  string `json:"requestProcessingLatency"`
-	TargetResponseTime        string `json:"targetResponseTime"`
-	ResponseProcessingLatency string `json:"responseProcessingLatency"`
-	TotalResponseTime         string `json:"totalResponseTime"`
-}
-
-type PageData struct {
-	Title string
-	Stats []ProxyStats
-}
-
-type Template struct {
-	templates *template.Template
-}
-
-func (t *Template) Render(w io.Writer, name string, data interface{}, c echo.Context) error {
-	return t.templates.ExecuteTemplate(w, name, data)
-}
+var (
+	ctx = context.Background()
+	rdb *redis.Client
+)
 
 func main() {
+	// Initialize Redis client
+	rdb = redis.NewClient(&redis.Options{
+		Addr: "localhost:6379", // Update this to your Redis server address
+	})
+
 	e := echo.New()
 
 	// Middleware
@@ -82,6 +71,15 @@ func handleAPIStats(c echo.Context) error {
 		timeRange = "1h" // Default to 1 hour if not specified
 	}
 
+	cacheKey := "stats:" + filterProxy + ":" + timeRange
+
+	cachedData, err := rdb.Get(ctx, cacheKey).Result()
+	if err == nil {
+		var response map[string]interface{}
+		json.Unmarshal([]byte(cachedData), &response)
+		return c.JSON(http.StatusOK, response)
+	}
+
 	toTime := time.Now().UTC()
 	fromTime := calculateFromTime(toTime, timeRange)
 
@@ -99,6 +97,9 @@ func handleAPIStats(c echo.Context) error {
 		"headers": headers,
 		"data":    data,
 	}
+
+	jsonResponse, _ := json.Marshal(response)
+	rdb.Set(ctx, cacheKey, jsonResponse, 5*time.Minute)
 
 	return c.JSON(http.StatusOK, response)
 }
@@ -121,6 +122,16 @@ func calculateFromTime(toTime time.Time, timeRange string) time.Time {
 }
 
 func handleAPIDeployments(c echo.Context) error {
+	cacheKey := "deployments"
+
+	// Try to get from cache
+	cachedData, err := rdb.Get(ctx, cacheKey).Result()
+	if err == nil {
+		var response map[string]interface{}
+		json.Unmarshal([]byte(cachedData), &response)
+		return c.JSON(http.StatusOK, response)
+	}
+
 	environments, err := apigee.GetEnvironments()
 	if err != nil {
 		c.Logger().Errorf("Error getting environments: %v", err)
@@ -133,6 +144,9 @@ func handleAPIDeployments(c echo.Context) error {
 		"headers": headers,
 		"data":    data,
 	}
+
+	jsonResponse, _ := json.Marshal(response)
+	rdb.Set(ctx, cacheKey, jsonResponse, 15*time.Minute)
 
 	return c.JSON(http.StatusOK, response)
 }
