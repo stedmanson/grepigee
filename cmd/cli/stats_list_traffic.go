@@ -5,47 +5,47 @@ import (
 	"os"
 	"time"
 
-	"github.com/stedmanson/grepigee/internal/apigee"
-	"github.com/stedmanson/grepigee/internal/output"
-
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/stedmanson/grepigee/internal/output"
+	"github.com/stedmanson/grepigee/internal/shared_ops"
 )
 
-// statsListTrafficCmd represents the find command for proxies
 var statsListTrafficCmd = &cobra.Command{
 	Use:   "traffic",
-	Short: "Display traffic data information for proxies or developer 	apps.",
+	Short: "Display traffic data information for proxies or developer apps.",
 	Long:  ``,
 	PreRun: func(cmd *cobra.Command, args []string) {
-		// Check if the environment flag was set by the user
 		if environment == "" {
-			// If not set via flag, try to get it from Viper
 			environment = viper.GetString("environment")
 		}
-
-		// If it's still empty after checking Viper, then it's an error
 		if environment == "" {
 			fmt.Println("Error: environment is not set. Use --env flag or set it in the config file.")
 			os.Exit(1)
 		}
 	},
 	Run: func(cmd *cobra.Command, args []string) {
-
 		filter, _ := cmd.Flags().GetString("filter")
 		from, _ := cmd.Flags().GetString("from")
 		to, _ := cmd.Flags().GetString("to")
 
-		parsedFromDt := parseDateTime(from)
-		parsedToDt := parseDateTime(to)
+		fromTime, _ := time.Parse("01/02/2006 15:04", from)
+		toTime, _ := time.Parse("01/02/2006 15:04", to)
 
-		headers, data, err := apigee.ListAllTraffic(environment, filter, parsedFromDt, parsedToDt)
+		req := shared_ops.StatsRequest{
+			Environment: environment,
+			FilterProxy: filter,
+			FromTime:    fromTime,
+			ToTime:      toTime,
+		}
+
+		response, err := shared_ops.GetTrafficStats(req, false)
 		if err != nil {
 			fmt.Println(err)
 			return
 		}
 
-		output.DisplayAsTable(headers, data)
+		output.DisplayAsTable(response["headers"].([]string), response["data"].([][]string))
 	},
 }
 
