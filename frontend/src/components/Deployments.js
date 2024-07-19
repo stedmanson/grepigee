@@ -22,6 +22,24 @@ const StyledTableCell = styled(TableCell)(({ theme }) => ({
   fontWeight: 'bold',
 }));
 
+const environmentOrder = ['dev', 'test', 'uat', 'prod', 'wc-prod'];
+
+function reorderDeploymentData(headers, data) {
+  const nameIndex = headers.findIndex(h => h.toLowerCase() === 'name');
+  const reorderedHeaders = ['Name', ...environmentOrder];
+  
+  const reorderedData = data.map(row => {
+    const newRow = [row[nameIndex]];
+    environmentOrder.forEach(env => {
+      const envIndex = headers.findIndex(h => h.toLowerCase() === env);
+      newRow.push(envIndex !== -1 ? row[envIndex] : '-');
+    });
+    return newRow;
+  });
+
+  return { headers: reorderedHeaders, data: reorderedData };
+}
+
 function Deployments() {
   const [deployments, setDeployments] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -30,7 +48,8 @@ function Deployments() {
   useEffect(() => {
     axios.get('/api/deployments')
       .then(response => {
-        setDeployments(response.data);
+        const reorderedDeployments = reorderDeploymentData(response.data.headers, response.data.data);
+        setDeployments(reorderedDeployments);
         setLoading(false);
       })
       .catch(error => {

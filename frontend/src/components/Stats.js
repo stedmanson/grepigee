@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { 
   TextField, 
@@ -37,48 +37,29 @@ function Stats() {
   const [proxyName, setProxyName] = useState('');
   const [timeRange, setTimeRange] = useState('1h');
   const [stats, setStats] = useState({ headers: [], data: [] });
-  const [loading, setLoading] = useState(true);
+  const [tableLoading, setTableLoading] = useState(false);
   const [error, setError] = useState(null);
 
   const loadStats = async () => {
-    setLoading(true);
+    setTableLoading(true);
+    setError(null);
     try {
       const response = await axios.get('/api/stats', {
         params: { proxyName, timeRange }
       });
       setStats(response.data);
-      setLoading(false);
     } catch (error) {
       console.error("Error fetching stats:", error);
       setError('Error fetching stats');
-      setLoading(false);
+    } finally {
+      setTableLoading(false);
     }
   };
-
-  useEffect(() => {
-    loadStats();
-  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     loadStats();
   };
-
-  if (loading) return (
-    <Container>
-      <Grid container justifyContent="center" alignItems="center" style={{ minHeight: '100vh' }}>
-        <CircularProgress />
-      </Grid>
-    </Container>
-  );
-  
-  if (error) return (
-    <Container>
-      <Grid container justifyContent="center" alignItems="center" style={{ minHeight: '100vh' }}>
-        <Typography color="error">{error}</Typography>
-      </Grid>
-    </Container>
-  );
 
   return (
     <Container maxWidth="lg">
@@ -127,8 +108,31 @@ function Stats() {
             </Grid>
           </form>
         </Grid>
+        
+        {error && (
+          <Grid item>
+            <Typography color="error">{error}</Typography>
+          </Grid>
+        )}
+        
         <Grid item>
-          <TableContainer component={Paper} elevation={3}>
+          <TableContainer component={Paper} elevation={3} style={{ position: 'relative' }}>
+            {tableLoading && (
+              <div style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                background: 'rgba(255, 255, 255, 0.7)',
+                zIndex: 1,
+              }}>
+                <CircularProgress />
+              </div>
+            )}
             <Table>
               <TableHead>
                 <TableRow>
