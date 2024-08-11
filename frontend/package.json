@@ -17,7 +17,7 @@
     "react-router-dom": "^6.24.1",
     "react-scripts": "5.0.1",
     "nth-check": ">=2.0.1",
-    "postcss": ">=8.4.31",
+    "postcss": ">=8.4.40",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
