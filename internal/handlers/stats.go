@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/labstack/echo/v4"
 	"github.com/stedmanson/grepigee/internal/cache"
 	"github.com/stedmanson/grepigee/internal/shared_ops"
@@ -18,6 +19,8 @@ func HandleAPIStats(c echo.Context) error {
 	if timeRange == "" {
 		timeRange = "1h"
 	}
+
+	spew.Dump(timeRange)
 
 	cacheKey := "stats:" + filterProxy + ":" + timeRange
 

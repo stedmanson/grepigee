@@ -14,6 +14,10 @@ func CalculateFromTime(toTime time.Time, timeRange string) time.Time {
 		return toTime.AddDate(0, 0, -1)
 	case "7d":
 		return toTime.AddDate(0, 0, -7)
+	case "14d":
+		return toTime.AddDate(0, 0, -14)
+	case "30d":
+		return toTime.AddDate(0, 0, -30)
 	default:
 		return toTime.Add(-1 * time.Hour)
 	}
